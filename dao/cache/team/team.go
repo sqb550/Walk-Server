@@ -80,6 +80,9 @@ end
 
 local day = redis.call("HGET", submittedDaysKey, teamID)
 if not day then
+	if tonumber(fallbackDay) < 0 then
+		return redis.error_reply("submitted team day is missing")
+	end
 	day = fallbackDay
 end
 
@@ -268,6 +271,8 @@ func SubmitTeam(ctx context.Context, teamID int64, day int) (int64, error) {
 	).Int64()
 }
 
+// RollbackTeamSubmit refunds the original submission day. A negative fallbackDay
+// requires the original day to exist, instead of guessing which day's quota to refund.
 func RollbackTeamSubmit(ctx context.Context, teamID int64, fallbackDay int) (bool, int, error) {
 	teamIDValue := strconv.FormatInt(teamID, 10)
 	result, err := rollbackTeamSubmitScript.Run(
@@ -301,6 +306,21 @@ func RestoreSubmittedTeam(ctx context.Context, teamID int64, day int) error {
 		teamIDValue,
 		day,
 	).Err()
+}
+
+// ClearSubmittedTeam removes the submission ledger without refunding quota.
+// Used after a team is disbanded during adjustment, when registration is closed.
+func ClearSubmittedTeam(ctx context.Context, teamID int64) error {
+	return clearSubmittedTeam(ctx, client(), teamID)
+}
+
+func clearSubmittedTeam(ctx context.Context, redisClient redis.UniversalClient, teamID int64) error {
+	_, err := redisClient.TxPipelined(ctx, func(pipe redis.Pipeliner) error {
+		pipe.SRem(ctx, submittedTeamsKey, teamID)
+		pipe.HDel(ctx, submittedTeamDaysKey, strconv.FormatInt(teamID, 10))
+		return nil
+	})
+	return err
 }
 
 func InitDailyTeamQuota(ctx context.Context, day int, limit int) error {

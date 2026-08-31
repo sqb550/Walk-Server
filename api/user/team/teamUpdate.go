@@ -55,9 +55,6 @@ func (h *TeamUpdateApi) Run(ctx *gin.Context) kit.Code {
 	if !(person != nil && team != nil && person.Role == comm.RoleCaptain && team.Captain == person.ID) {
 		return comm.CodeNotCaptain
 	}
-	if team.Submit && !comm.IsInBizPhase(comm.PhaseAdjustment) {
-		return comm.CodeTeamSubmitted
-	}
 	teamRepo := repo.NewTeamRepo()
 	route, err := teamRepo.FindRouteByName(ctx, h.Request.Body.RouteName)
 	if err != nil {
