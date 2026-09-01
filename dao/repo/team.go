@@ -194,14 +194,14 @@ func (r *TeamRepo) UpdateWithNotices(ctx context.Context, id int64, updates map[
 		if err := NewTeamRepoWithTx(tx).UpdateByID(ctx, id, updates); err != nil {
 			return err
 		}
-		notices := make([]model.NoticeRecord, 0, len(userIDs)*len(noticeTypes))
+		notices := make([]*model.Notice, 0, len(userIDs)*len(noticeTypes))
 		for _, userID := range userIDs {
 			for _, noticeType := range noticeTypes {
 				teamID := id
-				notices = append(notices, model.NoticeRecord{UserID: userID, Type: noticeType, TeamID: &teamID})
+				notices = append(notices, &model.Notice{UserID: userID, Type: noticeType, TeamID: &teamID})
 			}
 		}
-		return NewNoticeRepoWithDB(tx.Team.WithContext(ctx).UnderlyingDB()).UpsertUnread(ctx, notices)
+		return NewNoticeRepoWithTx(tx).UpsertUnread(ctx, notices)
 	})
 }
 
@@ -307,13 +307,13 @@ func (r *TeamRepo) RemoveMember(ctx context.Context, teamID int64, person *model
 		}); err != nil {
 			return err
 		}
-		noticeRepo := NewNoticeRepoWithDB(tx.Team.WithContext(ctx).UnderlyingDB())
+		noticeRepo := NewNoticeRepoWithTx(tx)
 		if err := noticeRepo.DeleteUnreadTypes(ctx, person.ID,
 			comm.NoticeTeamPasswordChanged, comm.NoticeTeamRouteChanged); err != nil {
 			return err
 		}
 		teamIDValue := teamID
-		if err := noticeRepo.UpsertUnread(ctx, []model.NoticeRecord{{
+		if err := noticeRepo.UpsertUnread(ctx, []*model.Notice{{
 			UserID: person.ID, Type: comm.NoticeRemovedFromTeam, TeamID: &teamIDValue,
 		}}); err != nil {
 			return err
@@ -338,7 +338,7 @@ func (r *TeamRepo) ChangeCaptain(ctx context.Context, teamID, oldCaptainID, newC
 			return err
 		}
 		teamIDValue, actorID := teamID, oldCaptainID
-		return NewNoticeRepoWithDB(tx.Team.WithContext(ctx).UnderlyingDB()).UpsertUnread(ctx, []model.NoticeRecord{{
+		return NewNoticeRepoWithTx(tx).UpsertUnread(ctx, []*model.Notice{{
 			UserID: newCaptainID, Type: comm.NoticeCaptainTransferred,
 			ActorID: &actorID, ActorName: oldCaptainName, TeamID: &teamIDValue,
 		}})

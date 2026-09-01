@@ -60,6 +60,15 @@ func main() {
 			}),
 			gen.FieldJSONTag("deleted_at", "-"),
 		}
+		if table == "notices" {
+			opts = append(opts,
+				gen.FieldType("type", "NoticeType"),
+				gen.FieldGenType("type", "String"),
+				gen.FieldType("actor_id", "*int64"),
+				gen.FieldType("team_id", "*int64"),
+				gen.FieldType("read_at", "*time.Time"),
+			)
+		}
 		tableName := g.GenerateModel(table, opts...)
 		g.ApplyBasic(tableName)
 	}

@@ -59,7 +59,7 @@ func (h *NoticeListApi) Run(ctx *gin.Context) kit.Code {
 	return comm.CodeOK
 }
 
-func noticeContent(notice model.NoticeRecord) (string, bool) {
+func noticeContent(notice *model.Notice) (string, bool) {
 	switch notice.Type {
 	case comm.NoticeTeamPasswordChanged:
 		return "队长已修改队伍密码", true

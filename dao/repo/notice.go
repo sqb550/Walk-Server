@@ -7,6 +7,7 @@ import (
 
 	"app/comm"
 	"app/dao/model"
+	"app/dao/query"
 
 	"github.com/zjutjh/mygo/ndb"
 	"gorm.io/gorm"
@@ -15,46 +16,46 @@ import (
 const unreadNoticeLimit = 50
 
 type NoticeRepo struct {
-	db *gorm.DB
+	query *query.Query
 }
 
 func NewNoticeRepo() *NoticeRepo {
-	return &NoticeRepo{db: ndb.Pick()}
+	return &NoticeRepo{query: query.Use(ndb.Pick())}
 }
 
-func NewNoticeRepoWithDB(db *gorm.DB) *NoticeRepo {
-	return &NoticeRepo{db: db}
+func NewNoticeRepoWithTx(tx *query.Query) *NoticeRepo {
+	return &NoticeRepo{query: tx}
 }
 
-func (r *NoticeRepo) ListUnread(ctx context.Context, userID int64) ([]model.NoticeRecord, error) {
-	var notices []model.NoticeRecord
-	err := r.db.WithContext(ctx).
-		Where("user_id = ? AND read_at IS NULL", userID).
-		Order("created_at ASC, id ASC").
+func (r *NoticeRepo) ListUnread(ctx context.Context, userID int64) ([]*model.Notice, error) {
+	n := r.query.Notice
+	return n.WithContext(ctx).
+		Where(n.UserID.Eq(userID), n.ReadAt.IsNull()).
+		Order(n.CreatedAt, n.ID).
 		Limit(unreadNoticeLimit).
-		Find(&notices).Error
-	return notices, err
+		Find()
 }
 
 func (r *NoticeRepo) Ack(ctx context.Context, userID, noticeID int64) error {
-	return r.db.WithContext(ctx).Model(&model.NoticeRecord{}).
-		Where("user_id = ? AND id = ? AND read_at IS NULL", userID, noticeID).
-		Update("read_at", time.Now()).Error
+	n := r.query.Notice
+	_, err := n.WithContext(ctx).
+		Where(n.UserID.Eq(userID), n.ID.Eq(noticeID), n.ReadAt.IsNull()).
+		Update(n.ReadAt, time.Now())
+	return err
 }
 
-func (r *NoticeRepo) UpsertUnread(ctx context.Context, notices []model.NoticeRecord) error {
+func (r *NoticeRepo) UpsertUnread(ctx context.Context, notices []*model.Notice) error {
 	if len(notices) == 0 {
 		return nil
 	}
-	for index := range notices {
-		notice := &notices[index]
-		var existing model.NoticeRecord
-		err := r.db.WithContext(ctx).
-			Where("user_id = ? AND type = ? AND read_at IS NULL", notice.UserID, notice.Type).
-			Order("id DESC").
-			First(&existing).Error
+	n := r.query.Notice
+	for _, notice := range notices {
+		existing, err := n.WithContext(ctx).
+			Where(n.UserID.Eq(notice.UserID), n.Type.Eq(string(notice.Type)), n.ReadAt.IsNull()).
+			Order(n.ID.Desc()).
+			First()
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			if err := r.db.WithContext(ctx).Create(notice).Error; err != nil {
+			if err := n.WithContext(ctx).Create(notice); err != nil {
 				return err
 			}
 			continue
@@ -62,12 +63,12 @@ func (r *NoticeRepo) UpsertUnread(ctx context.Context, notices []model.NoticeRec
 		if err != nil {
 			return err
 		}
-		if err := r.db.WithContext(ctx).Model(&existing).Updates(map[string]any{
+		if _, err := n.WithContext(ctx).Where(n.ID.Eq(existing.ID)).Updates(map[string]any{
 			"actor_id":   notice.ActorID,
 			"actor_name": notice.ActorName,
 			"team_id":    notice.TeamID,
 			"created_at": time.Now(),
-		}).Error; err != nil {
+		}); err != nil {
 			return err
 		}
 	}
@@ -78,7 +79,13 @@ func (r *NoticeRepo) DeleteUnreadTypes(ctx context.Context, userID int64, types 
 	if len(types) == 0 {
 		return nil
 	}
-	return r.db.WithContext(ctx).
-		Where("user_id = ? AND type IN ? AND read_at IS NULL", userID, types).
-		Delete(&model.NoticeRecord{}).Error
+	n := r.query.Notice
+	values := make([]string, 0, len(types))
+	for _, noticeType := range types {
+		values = append(values, string(noticeType))
+	}
+	_, err := n.WithContext(ctx).
+		Where(n.UserID.Eq(userID), n.Type.In(values...), n.ReadAt.IsNull()).
+		Delete()
+	return err
 }
