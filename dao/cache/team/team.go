@@ -31,8 +31,6 @@ const (
 	teamFilterCacheKeyPrefix   = "walk:dashboard:team:filter"
 	teamFilterCacheTTL         = 30 * time.Second
 	teamInfoLockCacheKeyPrefix = "walk:lock:dashboard:team"
-	teamChangeNoticeKeyPrefix  = "walk:team:change-notice"
-	teamChangeNoticeTTL        = 30 * 24 * time.Hour
 )
 
 var teamInfoLocks sync.Map
@@ -152,106 +150,6 @@ func BuildTeamFilterCacheKey(campus, queryHash string) string {
 
 func BuildTeamInfoLockCacheKey(teamID int64) string {
 	return fmt.Sprintf("%s:%d", teamInfoLockCacheKeyPrefix, teamID)
-}
-
-func buildTeamChangeNoticeKey(userID int64) string {
-	return fmt.Sprintf("%s:%d", teamChangeNoticeKeyPrefix, userID)
-}
-
-type TeamChangeNotice struct {
-	PasswordChanged bool
-	RouteChanged    bool
-	RemovedFromTeam bool
-}
-
-// SetTeamChangeNotice 为队员记录尚未查看的团队密码、路线变更通知。
-func SetTeamChangeNotice(ctx context.Context, userIDs []int64, passwordChanged, routeChanged bool) error {
-	return setTeamChangeNotice(ctx, client(), userIDs, passwordChanged, routeChanged)
-}
-
-func setTeamChangeNotice(ctx context.Context, redisClient redis.UniversalClient, userIDs []int64, passwordChanged, routeChanged bool) error {
-	if len(userIDs) == 0 || (!passwordChanged && !routeChanged) {
-		return nil
-	}
-
-	pipe := redisClient.Pipeline()
-	for _, userID := range userIDs {
-		if userID <= 0 {
-			continue
-		}
-		key := buildTeamChangeNoticeKey(userID)
-		values := make(map[string]any, 2)
-		if passwordChanged {
-			values["password_changed"] = 1
-		}
-		if routeChanged {
-			values["route_changed"] = 1
-		}
-		pipe.HSet(ctx, key, values)
-		pipe.Expire(ctx, key, teamChangeNoticeTTL)
-	}
-	_, err := pipe.Exec(ctx)
-	return err
-}
-
-// SetTeamRemovedNotice records a removal notice and discards changes from the
-// former team because its password and route are no longer relevant.
-func SetTeamRemovedNotice(ctx context.Context, userID int64) error {
-	return setTeamRemovedNotice(ctx, client(), userID)
-}
-
-func setTeamRemovedNotice(ctx context.Context, redisClient redis.UniversalClient, userID int64) error {
-	if userID <= 0 {
-		return nil
-	}
-	key := buildTeamChangeNoticeKey(userID)
-	_, err := redisClient.TxPipelined(ctx, func(pipe redis.Pipeliner) error {
-		pipe.HDel(ctx, key, "password_changed", "route_changed")
-		pipe.HSet(ctx, key, "removed_from_team", 1)
-		pipe.Expire(ctx, key, teamChangeNoticeTTL)
-		return nil
-	})
-	return err
-}
-
-// GetTeamChangeNotice 读取用户尚未确认的团队变更通知，不改变已读状态。
-func GetTeamChangeNotice(ctx context.Context, userID int64) (TeamChangeNotice, error) {
-	return getTeamChangeNotice(ctx, client(), userID)
-}
-
-func getTeamChangeNotice(ctx context.Context, redisClient redis.UniversalClient, userID int64) (TeamChangeNotice, error) {
-	result, err := redisClient.HGetAll(ctx, buildTeamChangeNoticeKey(userID)).Result()
-	if err != nil {
-		return TeamChangeNotice{}, err
-	}
-	removed := result["removed_from_team"] == "1"
-	return TeamChangeNotice{
-		PasswordChanged: !removed && result["password_changed"] == "1",
-		RouteChanged:    !removed && result["route_changed"] == "1",
-		RemovedFromTeam: removed,
-	}, nil
-}
-
-// AckTeamChangeNotice 清除用户明确确认过的团队变更通知类型。
-func AckTeamChangeNotice(ctx context.Context, userID int64, passwordChanged, routeChanged, removedFromTeam bool) error {
-	return ackTeamChangeNotice(ctx, client(), userID, passwordChanged, routeChanged, removedFromTeam)
-}
-
-func ackTeamChangeNotice(ctx context.Context, redisClient redis.UniversalClient, userID int64, passwordChanged, routeChanged, removedFromTeam bool) error {
-	fields := make([]string, 0, 3)
-	if passwordChanged {
-		fields = append(fields, "password_changed")
-	}
-	if routeChanged {
-		fields = append(fields, "route_changed")
-	}
-	if removedFromTeam {
-		fields = append(fields, "removed_from_team")
-	}
-	if len(fields) == 0 {
-		return nil
-	}
-	return redisClient.HDel(ctx, buildTeamChangeNoticeKey(userID), fields...).Err()
 }
 
 func buildDailyTeamQuotaKey(routeName string, day int) string {

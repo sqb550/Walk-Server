@@ -59,7 +59,7 @@ func (h *TeamChangeCaptainApi) Run(ctx *gin.Context) kit.Code {
 	if newCaptain == nil || newCaptain.TeamID != team.ID {
 		return comm.CodePeopleNotFound
 	}
-	if err := repo.NewTeamRepo().ChangeCaptain(ctx, team.ID, person.ID, newCaptain.ID); err != nil {
+	if err := repo.NewTeamRepo().ChangeCaptain(ctx, team.ID, person.ID, newCaptain.ID, person.Name); err != nil {
 		return comm.CodeServerError
 	}
 	_ = teamCache.DelTeamByID(ctx, team.ID)

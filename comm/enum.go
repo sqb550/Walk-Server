@@ -43,6 +43,16 @@ const (
 	MemberTypeAlumnus = "alumnus"
 )
 
+// NoticeType 通知类型枚举。
+type NoticeType string
+
+const (
+	NoticeTeamPasswordChanged NoticeType = "team_password_changed"
+	NoticeTeamRouteChanged    NoticeType = "team_route_changed"
+	NoticeRemovedFromTeam     NoticeType = "removed_from_team"
+	NoticeCaptainTransferred  NoticeType = "captain_transferred"
+)
+
 func IsValidWalkStatus(status string) bool {
 	switch status {
 	case WalkStatusNotStart,

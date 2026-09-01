@@ -22,6 +22,7 @@ var tables = []string{
 	"admins",
 	"checkins",
 	"wrong_route_records",
+	"notices",
 }
 
 func main() {

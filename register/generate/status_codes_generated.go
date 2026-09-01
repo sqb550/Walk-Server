@@ -565,6 +565,27 @@ func init() {
 		swagger.MustRegisterBusinessStatusCodes("app/api/user/team.hfTeamUpdate", statusCodes)
 	}
 
+	// api/user/user/userNotice.go
+	{
+		statusCodes := []kit.Code{
+			comm.CodeOK,
+			comm.CodeServerError,
+			comm.CodeNotLoggedIn,
+		}
+		swagger.MustRegisterBusinessStatusCodes("app/api/user/user.hfNoticeList", statusCodes)
+	}
+
+	// api/user/user/userNotice.go
+	{
+		statusCodes := []kit.Code{
+			comm.CodeOK,
+			comm.CodeServerError,
+			comm.CodeNotLoggedIn,
+			comm.CodeParameterInvalid,
+		}
+		swagger.MustRegisterBusinessStatusCodes("app/api/user/user.hfNoticeAck", statusCodes)
+	}
+
 	// api/user/user/userInfo.go:90
 	{
 		statusCodes := []kit.Code{
