@@ -72,6 +72,9 @@ func (h *TeamRemoveMemberApi) Run(ctx *gin.Context) kit.Code {
 	}
 	_ = teamCache.DelTeamByID(ctx, team.ID)
 	_ = teamCache.DeleteTeamInfo(ctx, team.ID)
+	if err := teamCache.SetTeamRemovedNotice(ctx, removed.ID, team.Name); err != nil {
+		nlog.Pick().WithContext(ctx).WithError(err).Warn("记录成员被移出队伍通知失败")
+	}
 	return comm.CodeOK
 }
 
