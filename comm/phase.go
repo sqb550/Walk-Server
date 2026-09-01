@@ -51,15 +51,16 @@ func CurrentSubmissionDay() (int, bool) {
 		return 0, false
 	}
 	day := daysBetween(start, now)
-	_, ok := DailyTeamLimit(day)
-	return day, ok
+	end, err := parseBizTime(phase.End)
+	return day, err == nil && day >= 0 && day <= daysBetween(start, end)
 }
 
-func DailyTeamLimit(day int) (int, bool) {
-	if day < 0 || day >= len(BizConf.DailyTeamLimits) {
+func DailyTeamLimit(routeName string, day int) (int, bool) {
+	limits, ok := BizConf.DailyTeamLimits[routeName]
+	if !ok || day < 0 || day >= len(limits) {
 		return 0, false
 	}
-	return BizConf.DailyTeamLimits[day], true
+	return limits[day], true
 }
 
 func phaseTimeRange(phase BizPhase) (TimeRangeConfig, bool) {

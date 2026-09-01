@@ -449,6 +449,15 @@ func init() {
 		swagger.MustRegisterBusinessStatusCodes("app/api/user/team.hfTeamOverview", statusCodes)
 	}
 
+	// api/user/team/teamQuota.go
+	{
+		statusCodes := []kit.Code{
+			comm.CodeOK,
+			comm.CodeServerError,
+		}
+		swagger.MustRegisterBusinessStatusCodes("app/api/user/team.hfTeamQuota", statusCodes)
+	}
+
 	// api/user/team/teamRandomJoin.go:86
 	{
 		statusCodes := []kit.Code{
@@ -547,6 +556,7 @@ func init() {
 			comm.CodeNotInTeam,
 			comm.CodeNotCaptain,
 			comm.CodeTeamNameDuplicated,
+			comm.CodeSubmittedRouteLocked,
 			comm.CodeTeamNotFound,
 			comm.CodePeopleNotFound,
 			comm.CodePreparationForbidden,

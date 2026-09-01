@@ -58,12 +58,12 @@ func (h *TeamDisbandApi) Run(ctx *gin.Context) kit.Code {
 	if team.Submit && !comm.IsInBizPhase(comm.PhaseSubmission, comm.PhaseAdjustment) {
 		return comm.CodeTeamSubmitted
 	}
-	refunded, submittedDay := false, 0
+	refunded, submittedRoute, submittedDay := false, "", 0
 	if team.Submit && comm.IsInBizPhase(comm.PhaseSubmission) {
 		var err error
 		// Disbanding is allowed throughout submission, including outside daily windows.
 		// Require the ledger's original day so a missing record cannot refund the wrong day.
-		refunded, submittedDay, err = teamCache.RollbackTeamSubmit(ctx, team.ID, -1)
+		refunded, submittedRoute, submittedDay, err = teamCache.RollbackTeamSubmit(ctx, team.ID, "", -1)
 		if err != nil || !refunded {
 			nlog.Pick().WithContext(ctx).WithError(err).Error("解散团队退还名额失败或提交记录缺失")
 			return comm.CodeServerError
@@ -74,7 +74,7 @@ func (h *TeamDisbandApi) Run(ctx *gin.Context) kit.Code {
 			// Compensation must still run if the request context has been cancelled.
 			recoveryCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
 			defer cancel()
-			if restoreErr := teamCache.RestoreSubmittedTeam(recoveryCtx, team.ID, submittedDay); restoreErr != nil {
+			if restoreErr := teamCache.RestoreSubmittedTeam(recoveryCtx, team.ID, submittedRoute, submittedDay); restoreErr != nil {
 				nlog.Pick().WithContext(ctx).WithError(restoreErr).Error("解散团队失败后恢复名额失败，需核对提交记录")
 			}
 		}

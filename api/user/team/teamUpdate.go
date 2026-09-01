@@ -72,6 +72,9 @@ func (h *TeamUpdateApi) Run(ctx *gin.Context) kit.Code {
 	}
 	passwordChanged := team.Password != h.Request.Body.Password
 	routeChanged := team.RouteName != h.Request.Body.RouteName
+	if team.Submit && routeChanged {
+		return comm.CodeSubmittedRouteLocked
+	}
 	memberIDs := make([]int64, 0)
 	if passwordChanged || routeChanged {
 		members, err := repo.NewPeopleRepo().FindPeopleByTeamID(ctx, team.ID)

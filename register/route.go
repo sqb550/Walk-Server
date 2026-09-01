@@ -92,6 +92,7 @@ func Route(router *gin.Engine) {
 				auth.GET("/team/overview", teamapi.TeamOverviewHandler())
 				auth.GET("/team/detail", teamapi.TeamDetailHandler())
 				auth.GET("/team/member", teamapi.TeamMemberHandler())
+				auth.GET("/team/quota", teamapi.TeamQuotaHandler())
 				auth.POST("/team/submit", teamapi.TeamSubmitHandler())
 				auth.POST("/team/rollback", teamapi.TeamRollbackHandler())
 				auth.GET("/team/random-list", teamapi.TeamRandomListHandler())
