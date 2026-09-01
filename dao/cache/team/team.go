@@ -162,7 +162,6 @@ type TeamChangeNotice struct {
 	PasswordChanged bool
 	RouteChanged    bool
 	RemovedFromTeam bool
-	RemovedTeamName string
 }
 
 // SetTeamChangeNotice 为队员记录尚未查看的团队密码、路线变更通知。
@@ -197,18 +196,18 @@ func setTeamChangeNotice(ctx context.Context, redisClient redis.UniversalClient,
 
 // SetTeamRemovedNotice records a removal notice and discards changes from the
 // former team because its password and route are no longer relevant.
-func SetTeamRemovedNotice(ctx context.Context, userID int64, teamName string) error {
-	return setTeamRemovedNotice(ctx, client(), userID, teamName)
+func SetTeamRemovedNotice(ctx context.Context, userID int64) error {
+	return setTeamRemovedNotice(ctx, client(), userID)
 }
 
-func setTeamRemovedNotice(ctx context.Context, redisClient redis.UniversalClient, userID int64, teamName string) error {
+func setTeamRemovedNotice(ctx context.Context, redisClient redis.UniversalClient, userID int64) error {
 	if userID <= 0 {
 		return nil
 	}
 	key := buildTeamChangeNoticeKey(userID)
 	_, err := redisClient.TxPipelined(ctx, func(pipe redis.Pipeliner) error {
 		pipe.HDel(ctx, key, "password_changed", "route_changed")
-		pipe.HSet(ctx, key, "removed_from_team", 1, "removed_team_name", teamName)
+		pipe.HSet(ctx, key, "removed_from_team", 1)
 		pipe.Expire(ctx, key, teamChangeNoticeTTL)
 		return nil
 	})
@@ -226,15 +225,10 @@ func getTeamChangeNotice(ctx context.Context, redisClient redis.UniversalClient,
 		return TeamChangeNotice{}, err
 	}
 	removed := result["removed_from_team"] == "1"
-	removedTeamName := ""
-	if removed {
-		removedTeamName = result["removed_team_name"]
-	}
 	return TeamChangeNotice{
 		PasswordChanged: !removed && result["password_changed"] == "1",
 		RouteChanged:    !removed && result["route_changed"] == "1",
 		RemovedFromTeam: removed,
-		RemovedTeamName: removedTeamName,
 	}, nil
 }
 
@@ -244,7 +238,7 @@ func AckTeamChangeNotice(ctx context.Context, userID int64, passwordChanged, rou
 }
 
 func ackTeamChangeNotice(ctx context.Context, redisClient redis.UniversalClient, userID int64, passwordChanged, routeChanged, removedFromTeam bool) error {
-	fields := make([]string, 0, 4)
+	fields := make([]string, 0, 3)
 	if passwordChanged {
 		fields = append(fields, "password_changed")
 	}
@@ -252,7 +246,7 @@ func ackTeamChangeNotice(ctx context.Context, redisClient redis.UniversalClient,
 		fields = append(fields, "route_changed")
 	}
 	if removedFromTeam {
-		fields = append(fields, "removed_from_team", "removed_team_name")
+		fields = append(fields, "removed_from_team")
 	}
 	if len(fields) == 0 {
 		return nil

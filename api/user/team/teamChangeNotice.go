@@ -28,10 +28,9 @@ type TeamChangeNoticeApi struct {
 }
 
 type TeamChangeNoticeApiResponse struct {
-	PasswordChanged bool   `json:"password_changed" desc:"团队密码是否已修改"`
-	RouteChanged    bool   `json:"route_changed" desc:"团队路线是否已修改"`
-	RemovedFromTeam bool   `json:"removed_from_team" desc:"是否已被移出队伍"`
-	RemovedTeamName string `json:"removed_team_name" desc:"被移出的原队伍名称"`
+	PasswordChanged bool `json:"password_changed" desc:"团队密码是否已修改"`
+	RouteChanged    bool `json:"route_changed" desc:"团队路线是否已修改"`
+	RemovedFromTeam bool `json:"removed_from_team" desc:"是否已被移出队伍"`
 }
 
 func (h *TeamChangeNoticeApi) Run(ctx *gin.Context) kit.Code {
@@ -47,7 +46,6 @@ func (h *TeamChangeNoticeApi) Run(ctx *gin.Context) kit.Code {
 	h.Response.PasswordChanged = notice.PasswordChanged
 	h.Response.RouteChanged = notice.RouteChanged
 	h.Response.RemovedFromTeam = notice.RemovedFromTeam
-	h.Response.RemovedTeamName = notice.RemovedTeamName
 	return comm.CodeOK
 }
 
