@@ -354,18 +354,37 @@ func (r *TeamRepo) ChangeCaptain(ctx context.Context, teamID, oldCaptainID, newC
 	})
 }
 
-func (r *TeamRepo) DisbandTeam(ctx context.Context, teamID int64) error {
+func (r *TeamRepo) DisbandTeam(ctx context.Context, teamID, captainID int64) error {
 	return r.query.Transaction(func(tx *query.Query) error {
-		if err := NewPeopleRepoWithTx(tx).UpdateByTeamID(ctx, teamID, map[string]any{
-			"role":    comm.RoleUnbind,
-			"team_id": int64(-1),
-		}); err != nil {
+		peopleRepo := NewPeopleRepoWithTx(tx)
+		members, err := peopleRepo.FindPeopleByTeamID(ctx, teamID)
+		if err != nil {
 			return err
 		}
 		if err := NewNoticeRepoWithTx(tx).DeleteUnreadByTeamID(ctx, teamID); err != nil {
 			return err
 		}
-		return NewTeamRepoWithTx(tx).DeleteByID(ctx, teamID)
+		if err := peopleRepo.UpdateByTeamID(ctx, teamID, map[string]any{
+			"role":    comm.RoleUnbind,
+			"team_id": int64(-1),
+		}); err != nil {
+			return err
+		}
+		if err := NewTeamRepoWithTx(tx).DeleteByID(ctx, teamID); err != nil {
+			return err
+		}
+		notices := make([]*model.Notice, 0, len(members))
+		for _, member := range members {
+			if member != nil && member.ID != captainID {
+				teamIDValue := teamID
+				notices = append(notices, &model.Notice{
+					UserID: member.ID,
+					Type:   comm.NoticeTeamDisbanded,
+					TeamID: &teamIDValue,
+				})
+			}
+		}
+		return NewNoticeRepoWithTx(tx).UpsertUnread(ctx, notices)
 	})
 }
 
